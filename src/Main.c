@@ -52,6 +52,15 @@ static char ErrMsg[ERR_DUMMY_LAST][100] = {
 
 };
 
+static long get_time()
+{
+	long time_ms;
+	struct _timeb timebuffer;
+	_ftime(&timebuffer);
+	time_ms = (long)timebuffer.time * 1000 + (long)timebuffer.millitm;
+	return time_ms;
+}
+
 static long my_get_time()
 {
 	long time_ms;
@@ -152,7 +161,7 @@ static void my_printf_t_eas(SYSTEMTIME str_time, int time_distrib[SIZE_OF_TIME_E
 {
 	FILE* t_file;
 
-	t_file = my_fopen("time_eas\\t", "w", str_time);
+	t_file = my_fopen("time_eas\\t_eas", "w", str_time);
 	for (int raw = 0; raw < SIZE_OF_TIME_EAS_DISTRIB; raw++) {
 		fprintf(t_file, "%d ", raw);
 		for (int ch = 0; ch < 16; ch++) {
@@ -374,6 +383,7 @@ Restart:
 	for (i = 0; i < 16; i++)
 		current_Event.oscillogram[i] = (int *)malloc(sizeof(int) * WDcfg.RecordLength);
 
+	current_Event.event_number = 1;
 	while (!WDrun.Quit) {
 		//Check for keyboard commands (key pressed)
 		if (WDrun.AcqRun == 0 && key == 0) {
@@ -454,8 +464,8 @@ Restart:
 			{
 				new_day = str_time.wDay;
 				memset(amp_distrib, 0, sizeof(int) * 16 * SIZE_OF_AMP_DISTRIB);
-				memset(time_distrib, 0, sizeof(int) * 16 * SIZE_OF_TIME_DISTRIB;
-                memset(time_eas_distrib, 0, sizeof(int) * 16 * SIZE_OF_TIME_EAS_DISTRIB;
+				memset(time_distrib, 0, sizeof(int) * 16 * SIZE_OF_TIME_DISTRIB);
+                memset(time_eas_distrib, 0, sizeof(int) * 16 * SIZE_OF_TIME_EAS_DISTRIB);
             }
 			my_printf_a(str_time, amp_distrib);
 			my_printf_t(str_time, time_distrib);
@@ -534,7 +544,6 @@ Restart:
 				int zero_line = 0;
 				int max_of_n_pulse = 0;
                 int time_of_max_of_n_pulse = 0;
-
 				for (i = 0; i < (int)Event16->ChSize[ch]; i++)
 				{
 					int x = 0;
@@ -545,7 +554,7 @@ Restart:
 						current_Event.em_in_event[ch/2] = current_Event.oscillogram[ch/2][i];
 						current_Event.time_max_amp[ch/2] = i;
 					}
-					else if (i > zero_point + 1000 && current_Event.oscillogram[ch/2][i] > 3 && zero_line == 0)
+					else if (i > zero_point + 1000 && current_Event.oscillogram[ch/2][i] >= 6 && zero_line == 0)
 					{
 						current_Event.n_in_event[ch/2]++;
                         max_of_n_pulse = current_Event.oscillogram[ch/2][i];
@@ -560,7 +569,7 @@ Restart:
                             max_of_n_pulse = current_Event.oscillogram[ch/2][i];
                             time_of_max_of_n_pulse++;
                         }
-                        else
+                        else if(current_Event.oscillogram[ch / 2][i] <= 3)
                         {
                             zero_line = 0;
                             time_distrib[time_of_max_of_n_pulse][ch/2]++;
@@ -577,7 +586,8 @@ Restart:
                     if (current_Event.em_in_event > 1900)
                         current_Event.record_flag = 1;
 					current_Event.chnumber++;
-					printf("%d %d   ", ch, current_Event.time_max_amp[ch/2]);
+					printf("ch = %d, time = %d,  amp = %d ", ch/2, current_Event.time_max_amp[ch/2], \
+						current_Event.em_in_event[ch/2]);
 				}
 				current_Event.esum += current_Event.em_in_event[ch/2];
 			}
@@ -588,8 +598,12 @@ Restart:
 			for (i = 0; i < 16; i++)
 				current_Event.nnumber += current_Event.n_in_event[i];
 			printf("\n");
-            if (current_Event.nnumber > 5 || current_Event.esum > 4000)
+            if (current_Event.nnumber > 15 || current_Event.esum > 4000)
                 current_Event.record_flag = 1;
+			if (current_Event.master == 0)
+				current_Event.record_flag = 0;
+			if (current_Event.record_flag == 1) 
+				printf("Record-length = %d\n", WDcfg.RecordLength);
 			my_printf_eas(current_Event, WDcfg.RecordLength);
 			current_Event.event_number++;
 		}
