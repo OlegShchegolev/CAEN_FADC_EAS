@@ -83,6 +83,10 @@
 #define NPOINTS 2
 #define NACQS   50
 
+#define SIZE_OF_AMP_DISTRIB 2048
+#define SIZE_OF_TIME_DISTRIB 200
+#define SIZE_OF_TIME_EAS_DISTRIB 200
+
 /* ###########################################################################
    Typedefs
    ###########################################################################
@@ -157,6 +161,7 @@ typedef struct s_EAS_Event {
     int         esum;
 	int			master;
     int         *oscillogram[16];
+    int         record_flag;
 }				t_EAS_Event;
 
 typedef struct WaveDumpRun_t {
