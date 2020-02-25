@@ -103,7 +103,7 @@ static void my_printf_eas(t_EAS_Event event, int record_length)
 	FILE* eas_file;
 	FILE* fosc ;
 
-	if (event.nnumber >= 5 && event.master > 0)
+	if (event.nnumber >= 10 && event.master > 0)
 		event.master |= 4;
 	if (event.esum >= 4000 && event.master > 0)
 		event.master |= 2;
@@ -583,11 +583,11 @@ Restart:
 					current_Event.em_in_event[ch/2] = 0;
 				else if (current_Event.em_in_event[ch/2] > 10)
 				{
-                    if (current_Event.em_in_event > 1900)
+                    if (current_Event.em_in_event[ch/2] > 1900)
                         current_Event.record_flag = 1;
 					current_Event.chnumber++;
-					printf("ch = %d, time = %d,  amp = %d ", ch/2, current_Event.time_max_amp[ch/2], \
-						current_Event.em_in_event[ch/2]);
+					//printf("ch = %d, time = %d,  amp = %d ", ch/2, current_Event.time_max_amp[ch/2], \
+					//	current_Event.em_in_event[ch/2]);
 				}
 				current_Event.esum += current_Event.em_in_event[ch/2];
 			}
@@ -597,13 +597,12 @@ Restart:
 			current_Event.time_ms = my_get_time();
 			for (i = 0; i < 16; i++)
 				current_Event.nnumber += current_Event.n_in_event[i];
-			printf("\n");
-            if (current_Event.nnumber > 15 || current_Event.esum > 4000)
+            if (current_Event.nnumber > 10 || current_Event.esum > 8000)
                 current_Event.record_flag = 1;
 			if (current_Event.master == 0)
 				current_Event.record_flag = 0;
-			if (current_Event.record_flag == 1) 
-				printf("Record-length = %d\n", WDcfg.RecordLength);
+			//if (current_Event.record_flag == 1) 
+			//	printf("Record-length = %d\n", WDcfg.RecordLength);
 			my_printf_eas(current_Event, WDcfg.RecordLength);
 			current_Event.event_number++;
 		}
