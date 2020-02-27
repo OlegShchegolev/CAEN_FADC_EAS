@@ -213,6 +213,14 @@ int main(int argc, char *argv[])
 	int time_distrib[SIZE_OF_TIME_DISTRIB][16];
     int time_eas_distrib[SIZE_OF_TIME_EAS_DISTRIB][16];
 
+    int is_zero_line = 0;
+    int current_level = 0;
+	int max_of_pulse = 0;
+    int start_time = 0;
+    int time_of_max_of_pulse = 0;
+    int dead_time = 0;
+    int current_data = 0;
+
     printf("\n");
     printf("**************************************************************\n");
     printf("                        Wave Dump %s\n", WaveDump_Release);
@@ -541,54 +549,74 @@ Restart:
 				for (i = 0; i < n_base_points; i++)
 					baseline_levels[ch] += Event16->DataChannel[ch][i];
 				baseline_levels[ch] /= n_base_points;
-				int zero_line = 0;
-				int max_of_n_pulse = 0;
-                int time_of_max_of_n_pulse = 0;
-				for (i = 0; i < (int)Event16->ChSize[ch]; i++)
+				
+                is_zero_line = 1;
+                current_level = 0;
+				max_of_pulse = 0;
+                start_time = 0;
+                time_of_max_of_pulse = 0;
+                dead_time = 0;
+                current_data = 0;
+				
+                for (i = n_base_points; i < (int)Event16->ChSize[ch]; i++)
 				{
-					int x = 0;
-					current_Event.oscillogram[ch/2][i] = Event16->DataChannel[ch][i] - baseline_levels[ch];
-					if (current_Event.oscillogram[ch/2][i] > current_Event.em_in_event[ch/2] && 
-						i < zero_point + 1000)
+                    current_data = Event16->DataChannel[ch][i] - baseline_levels[ch];
+					current_Event.oscillogram[ch/2][i] = current_data;
+                    if (i < zero_point + 100)
 					{
-						current_Event.em_in_event[ch/2] = current_Event.oscillogram[ch/2][i];
-						current_Event.time_max_amp[ch/2] = i;
-					}
-					else if (i > zero_point + 1000 && current_Event.oscillogram[ch/2][i] >= 6 && zero_line == 0)
-					{
-						current_Event.n_in_event[ch/2]++;
-                        max_of_n_pulse = current_Event.oscillogram[ch/2][i];
-                        time_eas_distrib[i*16*WDcfg.DecimationFactor/1000/100][ch/2]++;
-                        time_of_max_of_n_pulse = 0;
-						zero_line = 1;
-					}
-                    else if (i > zero_point + 1000 && zero_line == 1)
-                    {
-                        if (current_Event.oscillogram[ch/2][i] > max_of_n_pulse)
+                        if (current_data > 20) 
                         {
-                            max_of_n_pulse = current_Event.oscillogram[ch/2][i];
-                            time_of_max_of_n_pulse++;
+                            if (current_data > current_Event.em_in_event[ch/2])
+					        {
+						        current_Event.em_in_event[ch/2] = current_data;
+						        current_Event.time_max_amp[ch/2] = i;
+					        }
                         }
-                        else if(current_Event.oscillogram[ch / 2][i] <= 3)
+                    }
+					else if (i > zero_point + 100000/32)
+					{
+                        if (is_zero_line == 1)
                         {
-                            zero_line = 0;
-                            time_distrib[time_of_max_of_n_pulse][ch/2]++;
-                            amp_distrib[max_of_n_pulse][ch/2]++;
-                            time_of_max_of_n_pulse = 0;
-                            max_of_n_pulse = 0;
+                            if (dead_time == 0)
+                            {
+                                if (current_data > 4)
+                                {
+                                    start_time = i;
+                                    is_zero_line = 0;
+                                    max_of_pulse = current_data;
+                                }
+                            }
+                            else
+                                dead_time--;
+                        }
+                        else
+                        {
+                            if (current_data > max_of_pulse)
+                            {
+                                time_of_max_of_pulse = i - start_time;
+                                max_of_pulse = current_data;
+                            }
+                            else if (current_data <= 3)
+                            {
+                                if (time_of_max_of_pulse > 5 && max_of_pulse > 10)
+                                {
+                                    current_Event.n_in_event[ch/2]++;
+                                    time_eas_distrib[i*16*WDcfg.DecimationFactor/1000/100][ch/2]++;
+                                }
+                                time_distrib[time_of_max_of_pulse][ch/2]++;
+                                amp_distrib[max_of_pulse][ch/2]++;
+
+                                is_zero_line = 1;
+                                dead_time = 100;
+                                time_of_max_of_pulse = 0;
+                                max_of_pulse = 0;
+                            }
                         }
                     }
 				}
-				if (current_Event.em_in_event[ch/2] > -3 && current_Event.em_in_event[ch/2] < 3)
-					current_Event.em_in_event[ch/2] = 0;
-				else if (current_Event.em_in_event[ch/2] > 10)
-				{
-                    if (current_Event.em_in_event[ch/2] > 1900)
-                        current_Event.record_flag = 1;
-					current_Event.chnumber++;
-					//printf("ch = %d, time = %d,  amp = %d ", ch/2, current_Event.time_max_amp[ch/2], \
-					//	current_Event.em_in_event[ch/2]);
-				}
+                if (current_Event.em_in_event[ch/2] > 1900)
+                    current_Event.record_flag = 1;
+				current_Event.chnumber++;
 				current_Event.esum += current_Event.em_in_event[ch/2];
 			}
 			printf("\n");
@@ -597,12 +625,10 @@ Restart:
 			current_Event.time_ms = my_get_time();
 			for (i = 0; i < 16; i++)
 				current_Event.nnumber += current_Event.n_in_event[i];
-            if (current_Event.nnumber > 10 || current_Event.esum > 8000)
+            if (current_Event.nnumber > 5 || current_Event.esum > 4000)
                 current_Event.record_flag = 1;
 			if (current_Event.master == 0)
 				current_Event.record_flag = 0;
-			//if (current_Event.record_flag == 1) 
-			//	printf("Record-length = %d\n", WDcfg.RecordLength);
 			my_printf_eas(current_Event, WDcfg.RecordLength);
 			current_Event.event_number++;
 		}
