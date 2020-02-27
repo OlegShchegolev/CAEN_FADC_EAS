@@ -330,6 +330,7 @@ Restart:
         ErrCode = ERR_DGZ_PROGRAM;
         goto QuitProgram;
     }
+    getch();
 
     // Select the next enabled group for plotting
     if ((WDcfg.EnableMask) && (BoardInfo.FamilyCode == CAEN_DGTZ_XX740_FAMILY_CODE))
