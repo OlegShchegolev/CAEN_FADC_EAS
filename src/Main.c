@@ -573,16 +573,17 @@ Restart:
 					    }
                     }
                 }
-                for (i = zero_point + 30000/32; i < (int)Event16->ChSize[ch]; i++)
+                for (i = zero_point + 30000/32; i < (int)Event16->ChSize[ch] - 20; i++)
                 {
-                    if (i < zero_point + 500000/32)
+                    if (i < zero_point + 500000/32 && \
+                                abs(Event16->DataChannel[ch][i-10] - Event16->DataChannel[ch][i+10]) < 5)
                     {
                         floating_baseline = 0;
-                        for (int temp_n = 0; temp_n < 10; temp_n++)
+                        for (int temp_n = -10; temp_n < 10; temp_n++)
                             floating_baseline += Event16->DataChannel[ch][i-temp_n];
-                        floating_baseline /= 10;
+                        floating_baseline /= 20;
                     }
-                    else
+                    else if (i >= zero_point + 500000/32)
                         floating_baseline = baseline_levels[ch];
                     current_data = Event16->DataChannel[ch][i] - floating_baseline;
 					current_Event.oscillogram[ch/2][i] = Event16->DataChannel[ch][i] - baseline_levels[ch];
