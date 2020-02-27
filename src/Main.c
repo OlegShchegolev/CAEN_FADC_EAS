@@ -614,10 +614,13 @@ Restart:
                         }
                     }
 				}
-                if (current_Event.em_in_event[ch/2] > 1900)
-                    current_Event.record_flag = 1;
-				current_Event.chnumber++;
-				current_Event.esum += current_Event.em_in_event[ch/2];
+                if (current_Event.em_in_event[ch/2] > 20)
+                {
+                    current_Event.chnumber++;
+                    if (current_Event.em_in_event[ch/2] > 1900)
+                        current_Event.record_flag = 1;
+                    current_Event.esum += current_Event.em_in_event[ch/2];
+                }	
 			}
 			printf("\n");
 			current_Event.trig_time = EventInfo.TriggerTimeTag / 125;
