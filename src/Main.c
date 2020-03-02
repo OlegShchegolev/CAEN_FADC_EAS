@@ -560,10 +560,11 @@ Restart:
                 dead_time = 0;
                 current_data = 0;
 				
+                current_data = Event16->DataChannel[ch][i] - baseline_levels[ch];
+				current_Event.oscillogram[ch/2][i] = current_data;
+
                 for (i = n_base_points; i < zero_point + 100; i++)
 				{
-                    current_data = Event16->DataChannel[ch][i] - baseline_levels[ch];
-					current_Event.oscillogram[ch/2][i] = current_data;
                     if (current_data > 20) 
                     {
                         if (current_data > current_Event.em_in_event[ch/2])
@@ -586,7 +587,6 @@ Restart:
                     else if (i >= zero_point + 500000/32)
                         floating_baseline = baseline_levels[ch];
                     current_data = Event16->DataChannel[ch][i] - floating_baseline;
-					current_Event.oscillogram[ch/2][i] = Event16->DataChannel[ch][i] - baseline_levels[ch];
                     if (is_zero_line == 1)
                     {
                         if (dead_time == 0)
