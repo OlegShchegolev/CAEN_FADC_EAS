@@ -543,17 +543,14 @@ Restart:
             current_Event.record_flag = 0;
 
 			int zero_point = (int)(WDcfg.RecordLength * (1 - 0.01 * WDcfg.PostTrigger));
+            printf("Zero point = %d\n", zero_point);
 			for (ch = 0; ch < WDcfg.Nch; ch += 2) {
 				memset(current_Event.oscillogram[ch/2], 0, sizeof(int) * WDcfg.RecordLength);
 				int chmask = ch / 8;
 				int n_base_points = (int)(WDcfg.RecordLength * (1 - 0.01 * WDcfg.PostTrigger) * 0.7);
 				baseline_levels[ch] = 0;
 				for (i = 0; i < n_base_points; i++)
-				{
 					baseline_levels[ch] += Event16->DataChannel[ch][i];
-					current_data = Event16->DataChannel[ch][i] - baseline_levels[ch];
-					current_Event.oscillogram[ch / 2][i] = current_data;
-				}
 				baseline_levels[ch] /= n_base_points;
 				
                 is_zero_line = 1;
@@ -563,8 +560,9 @@ Restart:
                 time_of_max_of_pulse = 0;
                 dead_time = 0;
                 current_data = 0;
-				
 
+                for (i = 0; i < n_base_points; i++)
+					current_Event.oscillogram[ch / 2][i] = Event16->DataChannel[ch][i] - baseline_levels[ch];
 
                 for (i = n_base_points; i < zero_point + 100; i++)
 				{
@@ -579,6 +577,7 @@ Restart:
 					    }
                     }
                 }
+                printf("d#%d: amp = %d, tamp = %d; ", ch/2, current_Event.em_in_event[ch/2], current_Event.time_max_amp[ch/2]);
 				for (i = zero_point + 100; i < zero_point + 30000 / 32; i++)
 				{
 					current_data = Event16->DataChannel[ch][i] - baseline_levels[ch];
