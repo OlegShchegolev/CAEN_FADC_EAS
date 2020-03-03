@@ -549,7 +549,11 @@ Restart:
 				int n_base_points = (int)(WDcfg.RecordLength * (1 - 0.01 * WDcfg.PostTrigger) * 0.7);
 				baseline_levels[ch] = 0;
 				for (i = 0; i < n_base_points; i++)
+				{
 					baseline_levels[ch] += Event16->DataChannel[ch][i];
+					current_data = Event16->DataChannel[ch][i] - baseline_levels[ch];
+					current_Event.oscillogram[ch / 2][i] = current_data;
+				}
 				baseline_levels[ch] /= n_base_points;
 				
                 is_zero_line = 1;
@@ -560,11 +564,12 @@ Restart:
                 dead_time = 0;
                 current_data = 0;
 				
-                current_data = Event16->DataChannel[ch][i] - baseline_levels[ch];
-				current_Event.oscillogram[ch/2][i] = current_data;
+
 
                 for (i = n_base_points; i < zero_point + 100; i++)
 				{
+					current_data = Event16->DataChannel[ch][i] - baseline_levels[ch];
+					current_Event.oscillogram[ch / 2][i] = current_data
                     if (current_data > 20) 
                     {
                         if (current_data > current_Event.em_in_event[ch/2])
@@ -574,8 +579,14 @@ Restart:
 					    }
                     }
                 }
+				for (i = zero_point + 100; i < zero_point + 30000 / 32; i++)
+				{
+					current_data = Event16->DataChannel[ch][i] - baseline_levels[ch];
+					current_Event.oscillogram[ch / 2][i] = current_data
+				}
                 for (i = zero_point + 30000/32; i < (int)Event16->ChSize[ch] - 20; i++)
-                {
+                
+					current_Event.oscillogram[ch / 2][i] = Event16->DataChannel[ch][i] - baseline_levels[ch];
                     if (i < zero_point + 500000/32 && \
                                 abs(Event16->DataChannel[ch][i-10] - Event16->DataChannel[ch][i+10]) < 5)
                     {
@@ -587,6 +598,7 @@ Restart:
                     else if (i >= zero_point + 500000/32)
                         floating_baseline = baseline_levels[ch];
                     current_data = Event16->DataChannel[ch][i] - floating_baseline;
+					
                     if (is_zero_line == 1)
                     {
                         if (dead_time == 0)
