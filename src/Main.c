@@ -569,7 +569,7 @@ Restart:
                 for (i = n_base_points; i < zero_point + 100; i++)
 				{
 					current_data = Event16->DataChannel[ch][i] - baseline_levels[ch];
-					current_Event.oscillogram[ch / 2][i] = current_data
+					current_Event.oscillogram[ch / 2][i] = current_data;
                     if (current_data > 20) 
                     {
                         if (current_data > current_Event.em_in_event[ch/2])
@@ -582,10 +582,10 @@ Restart:
 				for (i = zero_point + 100; i < zero_point + 30000 / 32; i++)
 				{
 					current_data = Event16->DataChannel[ch][i] - baseline_levels[ch];
-					current_Event.oscillogram[ch / 2][i] = current_data
+					current_Event.oscillogram[ch / 2][i] = current_data;
 				}
                 for (i = zero_point + 30000/32; i < (int)Event16->ChSize[ch] - 20; i++)
-                
+				{
 					current_Event.oscillogram[ch / 2][i] = Event16->DataChannel[ch][i] - baseline_levels[ch];
                     if (i < zero_point + 500000/32 && \
                                 abs(Event16->DataChannel[ch][i-10] - Event16->DataChannel[ch][i+10]) < 5)
