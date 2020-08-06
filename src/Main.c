@@ -330,7 +330,6 @@ Restart:
         ErrCode = ERR_DGZ_PROGRAM;
         goto QuitProgram;
     }
-    getch();
 
     // Select the next enabled group for plotting
     if ((WDcfg.EnableMask) && (BoardInfo.FamilyCode == CAEN_DGTZ_XX740_FAMILY_CODE))
@@ -519,7 +518,7 @@ Restart:
 
 		for (int e = 0; e < (int)NumEvents; e++) {
 			// Get one event from the readout buffer 
-			
+			printf("master = %d\n",current_Event.master);
 			ret = CAEN_DGTZ_GetEventInfo(handle, buffer, BufferSize, e, &EventInfo, &EventPtr);
 
 			if (ret) {
@@ -577,7 +576,8 @@ Restart:
 					    }
                     }
                 }
-                printf("d#%d: amp = %d, tamp = %d; ", ch/2, current_Event.em_in_event[ch/2], current_Event.time_max_amp[ch/2]);
+                if (current_Event.master > 0)
+					printf("d#%d: amp = %d, tamp = %d; ", ch/2, current_Event.em_in_event[ch/2], current_Event.time_max_amp[ch/2]);
 				for (i = zero_point + 100; i < zero_point + 30000 / 32; i++)
 				{
 					current_data = Event16->DataChannel[ch][i] - baseline_levels[ch];
