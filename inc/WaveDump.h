@@ -56,6 +56,7 @@
 #define GNUPLOT_DEFAULT_PATH "/usr/bin/"
 #else
 #define DEFAULT_CONFIG_FILE  "WaveDumpConfig.txt"  /* local directory */
+#define SPECIAL_CONFIG_FILE  "WaveDumpConfig_X740.txt"
 #define GNUPLOT_DEFAULT_PATH ".\\"
 #endif
 

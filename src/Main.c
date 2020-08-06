@@ -1,219 +1,45 @@
-#define WaveDump_Release        "3.9.1"
-#define WaveDump_Release_Date   "May 2019"
-#define DBG_TIME
-
 #include "Additions.h"
 
 int main(int argc, char *argv[])
 {
-    WaveDumpConfig_t   WDcfg;
-    WaveDumpRun_t      WDrun;
-    CAEN_DGTZ_ErrorCode ret = CAEN_DGTZ_Success;
-    int  handle = -1;
-    ERROR_CODES ErrCode= ERR_NONE;
-    int i, ch, Nb=0, Ne=0;
-    uint32_t AllocatedSize, BufferSize, NumEvents;
-    char *buffer = NULL;
-    char *EventPtr = NULL;
-    char ConfigFileName[100];
-    int isVMEDevice= 0, MajorNumber;
-    uint64_t CurrentTime, PrevRateTime, ElapsedTime;
-    int nCycles= 0;
-    CAEN_DGTZ_BoardInfo_t       BoardInfo;
-    CAEN_DGTZ_EventInfo_t       EventInfo;
-
+    WaveDumpConfig_t   			WDcfg;
+    WaveDumpRun_t      			WDrun;
+	CAEN_DGTZ_BoardInfo_t       BoardInfo;
+    CAEN_DGTZ_ErrorCode 		ret = CAEN_DGTZ_Success;
+	CAEN_DGTZ_EventInfo_t		EventInfo;
+    int  						handle = -1;
+    uint32_t 					BufferSize, NumEvents;
+    char 						*buffer = NULL;
+    char 						*EventPtr = NULL;
+    int 						MajorNumber;
+    int 						nCycles= 0;
     CAEN_DGTZ_UINT16_EVENT_t    *Event16=NULL; /* generic event struct with 16 bit data (10, 12, 14 and 16 bit digitizers */
+    int 						ReloadCfgStatus = 0x7FFFFFFF; // Init to the bigger positive number
+	int 						baseline_levels[32];
+	int 						event_number, new_day;
+	SYSTEMTIME 					str_time;
+	t_EAS_Event 				current_Event;
+	uint64_t 					CurrentTime, PrevRateTime, ElapsedTime;
+	int 						key = 0;
+	int 						amp_distrib[SIZE_OF_AMP_DISTRIB][16];
+	int 						time_distrib[SIZE_OF_TIME_DISTRIB][16];
+    int 						time_eas_distrib[SIZE_OF_TIME_EAS_DISTRIB][16];
+    int 						is_zero_line = 0;
+    int 						current_level = 0;
+	int 						max_of_pulse = 0;
+    int 						start_time = 0;
+    int 						time_of_max_of_pulse = 0;
+    int 						dead_time = 0;
+    int 						current_data = 0;
+    int 						floating_baseline = 0;
+	int 						i, ch, Nb=0, Ne=0;
 
-    CAEN_DGTZ_UINT8_EVENT_t     *Event8=NULL; /* generic event struct with 8 bit data (only for 8 bit digitizers) */ 
-    WDPlot_t                    *PlotVar=NULL;
-    FILE *f_ini;
-
-    int ReloadCfgStatus = 0x7FFFFFFF; // Init to the bigger positive number
-
-	int baseline_levels[32];
-
-	int event_number, new_day;
-	SYSTEMTIME str_time;
-
-	t_EAS_Event current_Event;
-	int key = 0;
-
-	int amp_distrib[SIZE_OF_AMP_DISTRIB][16];
-	int time_distrib[SIZE_OF_TIME_DISTRIB][16];
-    int time_eas_distrib[SIZE_OF_TIME_EAS_DISTRIB][16];
-
-    int is_zero_line = 0;
-    int current_level = 0;
-	int max_of_pulse = 0;
-    int start_time = 0;
-    int time_of_max_of_pulse = 0;
-    int dead_time = 0;
-    int current_data = 0;
-    int floating_baseline = 0;
-
-    printf("\n");
-    printf("**************************************************************\n");
-    printf("   Edited 06.08.2020      Wave Dump %s\n", WaveDump_Release);
-    printf("**************************************************************\n");
-
-	/* *************************************************************************************** */
-	/* Open and parse default configuration file                                                       */
-	/* *************************************************************************************** */
-	PrevRateTime = 0;
-	new_day = 0;
-	event_number = 0;
-	
-Start:
-	memset(&WDrun, 0, sizeof(WDrun));
-	memset(&WDcfg, 0, sizeof(WDcfg));
-
-	if (argc > 1)//user entered custom filename
-		strcpy(ConfigFileName, argv[1]);
-	else 
-		strcpy(ConfigFileName, DEFAULT_CONFIG_FILE);
-
-	printf("Opening Configuration File %s\n", ConfigFileName);
-	f_ini = fopen(ConfigFileName, "r");
-	if (f_ini == NULL) {
-		ErrCode = ERR_CONF_FILE_NOT_FOUND;
-		goto QuitProgram;
-	}
-	ParseConfigFile(f_ini, &WDcfg);
-	fclose(f_ini);
-
-    /* *************************************************************************************** */
-    /* Open the digitizer and read the board information                                       */
-    /* *************************************************************************************** */
-    isVMEDevice = WDcfg.BaseAddress ? 1 : 0;
-
-    ret = CAEN_DGTZ_OpenDigitizer(WDcfg.LinkType, WDcfg.LinkNum, WDcfg.ConetNode, WDcfg.BaseAddress, &handle);
-    if (ret) {
-        ErrCode = ERR_DGZ_OPEN;
-        goto QuitProgram;
-    }
-
-    ret = CAEN_DGTZ_GetInfo(handle, &BoardInfo);
-    if (ret) {
-        ErrCode = ERR_BOARD_INFO_READ;
-        goto QuitProgram;
-    }
-    printf("Connected to CAEN Digitizer Model %s\n", BoardInfo.ModelName);
-    printf("ROC FPGA Release is %s\n", BoardInfo.ROC_FirmwareRel);
-    printf("AMC FPGA Release is %s\n", BoardInfo.AMC_FirmwareRel);
-
-    // Check firmware rivision (DPP firmwares cannot be used with WaveDump */
-    sscanf(BoardInfo.AMC_FirmwareRel, "%d", &MajorNumber);
-    if (MajorNumber >= 128) {
-        printf("This digitizer has a DPP firmware\n");
-        ErrCode = ERR_INVALID_BOARD_TYPE;
-        goto QuitProgram;
-    }
-
-	/* *************************************************************************************** */
-	/* Check if the board needs a specific config file and parse it instead of the default one */
-	/* *************************************************************************************** */
-
-
-	strcpy(ConfigFileName, "WaveDumpConfig_X740.txt");
-	printf("\nUsing configuration file %s.\n ", ConfigFileName);
-	memset(&WDrun, 0, sizeof(WDrun));
-	memset(&WDcfg, 0, sizeof(WDcfg));
-	f_ini = fopen(ConfigFileName, "r");
-	if (f_ini == NULL) {
-		ErrCode = ERR_CONF_FILE_NOT_FOUND;
-		goto QuitProgram;
-	}
-	ParseConfigFile(f_ini, &WDcfg);
-	fclose(f_ini);
-
-    // Get Number of Channels, Number of bits, Number of Groups of the board */
-    ret = GetMoreBoardInfo(handle, BoardInfo, &WDcfg);
-    if (ret) {
-        ErrCode = ERR_INVALID_BOARD_TYPE;
-        goto QuitProgram;
-    }
-
-	//set default DAC calibration coefficients
-	for (i = 0; i < MAX_SET; i++) {
-		WDcfg.DAC_Calib.cal[i] = 1;
-		WDcfg.DAC_Calib.offset[i] = 0;
-	}
-	//load DAC calibration data (if present in flash)
-    Load_DAC_Calibration_From_Flash(handle, &WDcfg, BoardInfo);
-
-    // Perform calibration (if needed).
-    if (WDcfg.StartupCalibration)
-        calibrate(handle, &WDrun, BoardInfo);
-
-Restart:
-    // mask the channels not available for this model
-    WDcfg.EnableMask &= (1<<(WDcfg.Nch/8))-1;
-    // Set plot mask
-    WDrun.ChannelPlotMask = (WDcfg.FastTriggerEnabled == 0) ? 0xFF: 0x1FF;
-	WDrun.PlotYscaleLog = 0;
-    /* *************************************************************************************** */
-    /* program the digitizer                                                                   */
-    /* *************************************************************************************** */
-    ret = ProgramDigitizer(handle, WDcfg, BoardInfo);
-    if (ret) {
-        ErrCode = ERR_DGZ_PROGRAM;
-        goto QuitProgram;
-    }
-
-    // Select the next enabled group for plotting
-    if ((WDcfg.EnableMask) && (BoardInfo.FamilyCode == CAEN_DGTZ_XX740_FAMILY_CODE))
-        if( ((WDcfg.EnableMask>>WDrun.GroupPlotIndex)&0x1)==0 )
-            GoToNextEnabledGroup(&WDrun, &WDcfg);
-
-    // Read again the board infos, just in case some of them were changed by the programming
-    // (like, for example, the TSample and the number of channels if DES mode is changed)
-    if(ReloadCfgStatus > 0) {
-        ret = CAEN_DGTZ_GetInfo(handle, &BoardInfo);
-        if (ret) {
-            ErrCode = ERR_BOARD_INFO_READ;
-            goto QuitProgram;
-        }
-        ret = GetMoreBoardInfo(handle,BoardInfo, &WDcfg);
-        if (ret) {
-            ErrCode = ERR_INVALID_BOARD_TYPE;
-            goto QuitProgram;
-        }
-    }
-
-    // Allocate memory for the event data and readout buffer
-    ret = CAEN_DGTZ_AllocateEvent(handle, (void**)&Event16);
-    if (ret != CAEN_DGTZ_Success) {
-        ErrCode = ERR_MALLOC;
-        goto QuitProgram;
-    }
-    ret = CAEN_DGTZ_MallocReadoutBuffer(handle, &buffer,&AllocatedSize); /* WARNING: This malloc must be done after the digitizer programming */
-    if (ret) {
-        ErrCode = ERR_MALLOC;
-        goto QuitProgram;
-    }
-
-	if (WDrun.Restart && WDrun.AcqRun) 
-	{
-#ifdef _WIN32
-		Sleep(300);
-#else
-		usleep(300000);
-#endif
-		Set_relative_Threshold(handle, &WDcfg, BoardInfo);
-
-		CAEN_DGTZ_SWStartAcquisition(handle);
-	}
-    else
-        printf("[s] start/stop the acquisition, [q] quit, [SPACE] help\n");
-
-    //---------------------------------
-
+	BoardInfo = prepare_device(&WDcfg, &WDrun, &handle, &buffer, &Event16);
 	WDrun.Restart = 0;
-	
+	start_device(&WDcfg, &WDrun, handle, &BoardInfo, ReloadCfgStatus, &buffer, &Event16);
 	/* *************************************************************************************** */
     /* Readout Loop                                                                            */
     /* *************************************************************************************** */
-	
 	memset(amp_distrib, 0, sizeof(int) * 16 * SIZE_OF_AMP_DISTRIB);
 	memset(time_distrib, 0, sizeof(int) * 16 * SIZE_OF_TIME_DISTRIB);
     memset(time_eas_distrib, 0, sizeof(int) * 16 * SIZE_OF_TIME_EAS_DISTRIB);
@@ -225,57 +51,34 @@ Restart:
 	while (!WDrun.Quit) {
 		//Check for keyboard commands (key pressed)
 		if (WDrun.AcqRun == 0 && key == 0) {
-			if (BoardInfo.FamilyCode != CAEN_DGTZ_XX742_FAMILY_CODE)//XX742 not considered
-				Set_relative_Threshold(handle, &WDcfg, BoardInfo);
-
-			if (BoardInfo.FamilyCode == CAEN_DGTZ_XX730_FAMILY_CODE || BoardInfo.FamilyCode == CAEN_DGTZ_XX725_FAMILY_CODE)
-				WDrun.GroupPlotSwitch = 0;
-
+			Set_relative_Threshold(handle, &WDcfg, BoardInfo);
 			printf("Acquisition started\n");
-
 			CAEN_DGTZ_SWStartAcquisition(handle);
-
 			WDrun.AcqRun = 1;
 			key = 1;
 		}
 		CheckKeyboardCommands(handle, &WDrun, &WDcfg, BoardInfo);
-		if (WDrun.Restart) {
-			CAEN_DGTZ_SWStopAcquisition(handle);
-			CAEN_DGTZ_FreeReadoutBuffer(&buffer);
-			ClosePlotter();
-			PlotVar = NULL;
-			CAEN_DGTZ_FreeEvent(handle, (void**)& Event16);
-			f_ini = fopen(ConfigFileName, "r");
-			ReloadCfgStatus = ParseConfigFile(f_ini, &WDcfg);
-			fclose(f_ini);
-			goto Restart;
-		}
+		if (WDrun.Restart)
+			start_device(&WDcfg, &WDrun, handle, &BoardInfo, ReloadCfgStatus, &buffer, &Event16);
 		if (WDrun.AcqRun == 0)
 			continue;
-
 		/* Send a software trigger */
-		if (WDrun.ContinuousTrigger) {
+		if (WDrun.ContinuousTrigger)
 			CAEN_DGTZ_SendSWtrigger(handle);
-		}
-
 		/* Wait for interrupt (if enabled) */
 		if (WDcfg.InterruptNumEvents > 0) {
 			int32_t boardId;
 			int VMEHandle = -1;
 			int InterruptMask = (1 << VME_INTERRUPT_LEVEL);
-
 			BufferSize = 0;
 			NumEvents = 0;
 			// Interrupt handling
 			ret = CAEN_DGTZ_IRQWait(handle, INTERRUPT_TIMEOUT);
 			if (ret == CAEN_DGTZ_Timeout)  // No active interrupt requests
-				goto InterruptTimeout;
-			if (ret != CAEN_DGTZ_Success) {
-				ErrCode = ERR_INTERRUPT;
-				goto QuitProgram;
-			}
+				;
+			else if (ret != CAEN_DGTZ_Success)
+				quit_program(handle, ERR_INTERRUPT, &buffer, &Event16);
 		}
-	InterruptTimeout:
 		/* Calculate throughput and trigger rate (every second) */
 		Nb += BufferSize;
 		Ne += NumEvents;
@@ -315,51 +118,36 @@ Restart:
 			current_Event.master = 1;
 		/* Read data from the board */
 		ret = CAEN_DGTZ_ReadData(handle, CAEN_DGTZ_SLAVE_TERMINATED_READOUT_MBLT, buffer, &BufferSize);
-		if (ret) {
-			ErrCode = ERR_READOUT;
-			goto QuitProgram;
-		}
+		if (ret)
+			quit_program(handle, ERR_READOUT, &buffer, &Event16);
 		NumEvents = 0;
 		if (BufferSize != 0) {
 			ret = CAEN_DGTZ_GetNumEvents(handle, buffer, BufferSize, &NumEvents);
-			if (ret) {
-				ErrCode = ERR_READOUT;
-				goto QuitProgram;
-			}
+			if (ret)
+				quit_program(handle, ERR_READOUT, &buffer, &Event16);
 		}
 		else {
 			uint32_t lstatus;
 			ret = CAEN_DGTZ_ReadRegister(handle, CAEN_DGTZ_ACQ_STATUS_ADD, &lstatus);
-			if (ret) {
+			if (ret)
 				printf("Warning: Failure reading reg:%x (%d)\n", CAEN_DGTZ_ACQ_STATUS_ADD, ret);
-			}
 			else {
-				if (lstatus & (0x1 << 19)) {
-					ErrCode = ERR_OVERTEMP;
-					goto QuitProgram;
-				}
+				if (lstatus & (0x1 << 19))
+					quit_program(handle, ERR_OVERTEMP, &buffer, &Event16);
 			}
 		}
-	
-		
 		/* Analyze data */
 		int detnum = 0;
-
 		for (int e = 0; e < (int)NumEvents; e++) {
 			// Get one event from the readout buffer 
 			printf("master = %d\n",current_Event.master);
 			ret = CAEN_DGTZ_GetEventInfo(handle, buffer, BufferSize, e, &EventInfo, &EventPtr);
-
-			if (ret) {
-				ErrCode = ERR_EVENT_BUILD;
-				goto QuitProgram;
-			}
+			if (ret)
+				quit_program(handle, ERR_EVENT_BUILD, &buffer, &Event16);
 			// decode the event 
 			ret = CAEN_DGTZ_DecodeEvent(handle, EventPtr, (void**)& Event16);
-			if (ret) {
-				ErrCode = ERR_EVENT_BUILD;
-				goto QuitProgram;
-			}
+			if (ret)
+				quit_program(handle, ERR_EVENT_BUILD, &buffer, &Event16);
 			current_Event.chnumber = 0;
 
 			memset(current_Event.em_in_event, 0, sizeof(int) * 16);
@@ -486,25 +274,6 @@ Restart:
 			current_Event.event_number++;
 		}
 	}
-    ErrCode = ERR_NONE;
-QuitProgram:
-    if (ErrCode) {
-        printf("\a%s\n", ErrMsg[ErrCode]);
-#ifdef WIN32
-        printf("Press a key to quit\n");
-        getch();
-#endif
-    }
-
-    /* stop the acquisition */
-    CAEN_DGTZ_SWStopAcquisition(handle);
-
-    /* close the device and free the buffers */
-    if(Event8)
-        CAEN_DGTZ_FreeEvent(handle, (void**)&Event8);
-    if(Event16)
-        CAEN_DGTZ_FreeEvent(handle, (void**)&Event16);
-    CAEN_DGTZ_FreeReadoutBuffer(&buffer);
-    CAEN_DGTZ_CloseDigitizer(handle);
+	quit_program(handle, ERR_NONE, &buffer, &Event16);
     return 0;
 }

@@ -7,6 +7,10 @@
 #include "keyb.h"
 #include "X742CorrectionRoutines.h"
 
+#define WaveDump_Release        "3.9.1"
+#define WaveDump_Release_Date   "May 2019"
+#define DBG_TIME
+
 #ifndef max
 #define max(a,b)            (((a) > (b)) ? (a) : (b))
 #endif
@@ -57,4 +61,10 @@ void my_printf_eas(t_EAS_Event event, int record_length);
 void my_printf_a(SYSTEMTIME str_time, int amp_distrib[SIZE_OF_AMP_DISTRIB][16]);
 void my_printf_t(SYSTEMTIME str_time, int time_distrib[SIZE_OF_TIME_DISTRIB][16]);
 void my_printf_t_eas(SYSTEMTIME str_time, int time_distrib[SIZE_OF_TIME_EAS_DISTRIB][16]);
+
+void quit_program(int handle, ERROR_CODES ErrCode, char **buffer, CAEN_DGTZ_UINT16_EVENT_t **Event16);
+CAEN_DGTZ_BoardInfo_t prepare_device(WaveDumpConfig_t *WDcfg, WaveDumpRun_t *WDrun, int *handle, \
+								char **buffer, CAEN_DGTZ_UINT16_EVENT_t **Event16);
+void start_device(WaveDumpConfig_t *WDcfg, WaveDumpRun_t *WDrun, int handle, CAEN_DGTZ_BoardInfo_t *BoardInfo, \
+								int ReloadCfgStatus, char **buffer, CAEN_DGTZ_UINT16_EVENT_t **Event16);
 
