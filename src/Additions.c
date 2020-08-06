@@ -183,8 +183,8 @@ CAEN_DGTZ_BoardInfo_t prepare_device(WaveDumpConfig_t *WDcfg, WaveDumpRun_t *WDr
 	/* Check if the board needs a specific config file and parse it instead of the default one */
 	/* *************************************************************************************** */
 	printf("\nUsing configuration file %s.\n ", SPECIAL_CONFIG_FILE);
-	memset(&WDrun, 0, sizeof(WDrun));
-	memset(&WDcfg, 0, sizeof(WDcfg));
+	memset(WDrun, 0, sizeof(*WDrun));
+	memset(WDcfg, 0, sizeof(*WDcfg));
 	f_ini = fopen(SPECIAL_CONFIG_FILE, "r");
 	if (f_ini == NULL)
 		quit_program(*handle, ERR_CONF_FILE_NOT_FOUND, buffer, Event16);
@@ -230,10 +230,6 @@ void start_device(WaveDumpConfig_t *WDcfg, WaveDumpRun_t *WDrun, int handle, CAE
     ret = ProgramDigitizer(handle, *WDcfg, *BoardInfo);
     if (ret)
         quit_program(handle, ERR_DGZ_PROGRAM, buffer, Event16);
-    /* Select the next enabled group for plotting */
-    if ((WDcfg->EnableMask) && (BoardInfo->FamilyCode == CAEN_DGTZ_XX740_FAMILY_CODE))
-        if( ((WDcfg->EnableMask>>WDrun->GroupPlotIndex)&0x1)==0 )
-            GoToNextEnabledGroup(&WDrun, &WDcfg);
     /* Read again the board infos, just in case some of them were changed by the programming
        (like, for example, the TSample and the number of channels if DES mode is changed) */
     if(ReloadCfgStatus > 0) {
@@ -249,7 +245,7 @@ void start_device(WaveDumpConfig_t *WDcfg, WaveDumpRun_t *WDrun, int handle, CAE
     if (ret != CAEN_DGTZ_Success)
         quit_program(handle, ERR_MALLOC, buffer, Event16);
 	/* WARNING: This malloc must be done after the digitizer programming */
-    ret = CAEN_DGTZ_MallocReadoutBuffer(handle, &buffer, &AllocatedSize);
+    ret = CAEN_DGTZ_MallocReadoutBuffer(handle, buffer, &AllocatedSize);
     if (ret)
         quit_program(handle, ERR_MALLOC, buffer, Event16);
 	if (WDrun->Restart && WDrun->AcqRun) 
@@ -259,7 +255,7 @@ void start_device(WaveDumpConfig_t *WDcfg, WaveDumpRun_t *WDrun, int handle, CAE
 		#else
 				usleep(300000);
 		#endif
-				Set_relative_Threshold(handle, &WDcfg, *BoardInfo);
+				Set_relative_Threshold(handle, WDcfg, *BoardInfo);
 
 		CAEN_DGTZ_SWStartAcquisition(handle);
 	}

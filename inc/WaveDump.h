@@ -14,8 +14,7 @@
 * software, documentation and results solely at his own risk.
 ******************************************************************************/
 
-#ifndef _WAVEDUMP_H_
-#define _WAVEDUMP_H_
+#pragma once
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -198,4 +197,4 @@ void Calibrate_DC_Offset(int handle, WaveDumpConfig_t *WDcfg, CAEN_DGTZ_BoardInf
 void Calibrate_XX740_DC_Offset(int handle, WaveDumpConfig_t *WDcfg, CAEN_DGTZ_BoardInfo_t BoardInfo);
 int Set_calibrated_DCO(int handle, int ch, WaveDumpConfig_t *WDcfg, CAEN_DGTZ_BoardInfo_t BoardInfo);
 int* calculate_max_amp(int** values, int* size);
-#endif /* _WAVEDUMP__H */
+int GetMoreBoardInfo(int handle, CAEN_DGTZ_BoardInfo_t BoardInfo, WaveDumpConfig_t* WDcfg);
